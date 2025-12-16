@@ -32,6 +32,13 @@ const userSchema = new Schema({
         required: [true, "Password is required"]
     },
 
+    posts: [
+        {
+            type: Schema.Types.ObjectId,
+            ref: "Post"
+        }
+    ],
+
     refreshToken: {
         type: String
     }

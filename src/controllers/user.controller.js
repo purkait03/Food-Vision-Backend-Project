@@ -50,6 +50,8 @@ const registerUser = asyncHandler(async (req, res)=>{
         password
     })
 
+    const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id)
+
     const createdUser = await User.findById(user._id).select(
         "-password -refreshtoken"
     )
@@ -58,11 +60,59 @@ const registerUser = asyncHandler(async (req, res)=>{
         throw new ApiError(500, "Somthing went wrong while registering the user")
     }
 
-    return res.status(200).json(
-        new ApiResponse(200, createdUser, "The user is registered successfully")
+    return res
+    .status(200)
+    .coockie("accesstoken", accessToken, options)
+    .coockie("refreshtoken", refreshToken, options)
+    .json(
+        new ApiResponse(200, {createdUser, accessToken, refreshToken}, "The user is registered successfully")
     )
 })
 
+const loginUser = asyncHandler(async (req, res)=>{
+    const {username, email, password} = req.body
+
+    if(!(username || email)){
+        throw new ApiError(400, "Username or email is required")
+    }
+
+    const orConditions = []
+
+    if(username) orConditions.push({username})
+    if(email) orConditions.push({email})
+    
+    const user = await User.findOne({
+        $or: orConditions
+    })
+
+    if(!user) throw new ApiError(404, "User not found")
+
+    const isPasswordValid = await user.isPasswordCorrect(password)
+
+    if(!isPasswordValid) throw new ApiError(401, "Password is incorrect")
+
+    const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id)
+    
+    const loggedInUser = await User.findById(user._id).select(
+        "-password -refreshtoken"
+    )
+
+    return res
+    .status(200)
+    .coockie("accesstoken", accessToken, options)
+    .coockie("refreshtoken", refreshToken, options)
+    .json(
+        new ApiResponse(
+            200,
+            {
+                user: loggedInUser,
+                accessToken,
+                refreshToken
+            },
+            "User is logged in successfully"
+        )
+    )
+})
 
 export {
     registerUser

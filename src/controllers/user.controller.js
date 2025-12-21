@@ -2,8 +2,11 @@ import { asyncHandler } from "../utils/asyncHandler.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { ApiError } from "../utils/ApiError.js"
 import { User } from "../models/user.model.js"
+import { Post } from "../models/post.model.js"
+import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import mongoose from "mongoose"
 import jwt from "jsonwebtoken"
+import axios from "axios"
 
 
 const options = {
@@ -158,28 +161,28 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             throw new ApiError(401, "Refresh token is expired or used")
         }
 
-        const {accessToken, newRefreshToken} = await generateAccessAndRefreshToken(user._id)
+        const { accessToken, newRefreshToken } = await generateAccessAndRefreshToken(user._id)
 
         return res
-        .status(200)
-        .cookie("accessToken", accessToken, options)
-        .cookie("refreshToken", newRefreshToken, options)
-        .json(
-            200,
-            {
-                accessToken,
-                refreshToken: newRefreshToken
-            },
-            "Access token is refreshed"
-        )
+            .status(200)
+            .cookie("accessToken", accessToken, options)
+            .cookie("refreshToken", newRefreshToken, options)
+            .json(
+                200,
+                {
+                    accessToken,
+                    refreshToken: newRefreshToken
+                },
+                "Access token is refreshed"
+            )
 
     } catch (error) {
         throw new ApiError(401, error?.message || "Invalid refresh token")
     }
 })
 
-const changeCurrentPassword = asyncHandler(async (req, res)=>{
-    const {oldPassword, newPassword} = req.body
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+    const { oldPassword, newPassword } = req.body
 
     const user = await User.findById(req.user?._id)
 
@@ -190,17 +193,17 @@ const changeCurrentPassword = asyncHandler(async (req, res)=>{
     }
 
     user.password = newPassword
-    await user.save({validateBeforeSave: false})
+    await user.save({ validateBeforeSave: false })
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(200, {}, "Password is updated successfully")
-    )
+        .status(200)
+        .json(
+            new ApiResponse(200, {}, "Password is updated successfully")
+        )
 })
 
-const updateAccountDetails = asyncHandler(async (req, res)=>{
-    const {fullname, email} = req.body
+const updateAccountDetails = asyncHandler(async (req, res) => {
+    const { fullname, email } = req.body
 
     if (!fullname || !email) {
         throw new ApiError(400, "All fields are required")
@@ -220,13 +223,13 @@ const updateAccountDetails = asyncHandler(async (req, res)=>{
     ).select("-password")
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(200, user, "Account details are updated successfully")
-    )
+        .status(200)
+        .json(
+            new ApiResponse(200, user, "Account details are updated successfully")
+        )
 })
 
-const getAllImages = asyncHandler(async (req, res)=>{
+const getAllImages = asyncHandler(async (req, res) => {
     const user = await User.aggregate([
         {
             $match: {
@@ -234,7 +237,7 @@ const getAllImages = asyncHandler(async (req, res)=>{
             }
         },
         {
-            $lookup:{
+            $lookup: {
                 from: "posts",
                 localField: "posts",
                 foreignField: "_id",
@@ -242,7 +245,7 @@ const getAllImages = asyncHandler(async (req, res)=>{
             }
         },
         {
-            $project:{
+            $project: {
                 posts: 1,
                 _id: 0
             }
@@ -254,10 +257,60 @@ const getAllImages = asyncHandler(async (req, res)=>{
     }
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(200, user[0].posts, "All images are fetched successfully")
-    )
+        .status(200)
+        .json(
+            new ApiResponse(200, user[0].posts, "All images are fetched successfully")
+        )
+})
+
+const prediction = asyncHandler(async (req, res) => {
+    const imageLocalPath = req.file?.path
+
+    if (!imageLocalPath) {
+        throw new ApiError(400, "Image is missing")
+    }
+
+    const image = await uploadOnCloudinary(imageLocalPath)
+
+    if (!image.url) {
+        throw new ApiError(500, "Image upload failed on Cloudinary")
+    }
+
+    if (!req.user._id) {
+        throw new ApiError(404, "User id not found")
+    }
+
+    const post = await Post.create({
+        imageFile: image.url,
+        owner: req.user._id
+    })
+
+    try {
+        const aiResponse = await axios.post(
+            process.env.FASTAPI_URL,        
+            {
+                imageUrl: image.url
+            }
+        )
+
+        return res
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200,
+                    {
+                        result: aiResponse.data.result,
+                        post
+                    },
+                    "Prediction successful")
+            )
+    } catch (error) {
+        if (error.response) {
+            console.error(error.response.data);
+        }
+    }
+
+
 })
 
 export {
@@ -267,5 +320,6 @@ export {
     refreshAccessToken,
     changeCurrentPassword,
     updateAccountDetails,
-    getAllImages
+    getAllImages,
+    prediction
 }

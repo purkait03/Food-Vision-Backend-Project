@@ -1,6 +1,6 @@
-import mongoose, {Schema} from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
-const postSchema = ({
+const postSchema = new Schema({
     imageFile: {
         type: String,
         required: true
@@ -11,9 +11,9 @@ const postSchema = ({
         ref: "User"
     }
 },
-    {
-        timestamps: true
-    }
+{
+    timestamps: true
+}
 )
 
 

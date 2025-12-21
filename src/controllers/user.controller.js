@@ -31,7 +31,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const { username, email, fullname, password } = req.body
 
     if ([username, email, fullname, password].some((field) => field.trim() === "")) {
-        throw new ApiError(400, "all fields are requierd")
+        throw new ApiError(400, "All fields are requierd")
     }
 
     const existedUser = await User.findOne({
@@ -61,8 +61,8 @@ const registerUser = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .coockie("accesstoken", accessToken, options)
-        .coockie("refreshtoken", refreshToken, options)
+        .cookie("accesstoken", accessToken, options)
+        .cookie("refreshtoken", refreshToken, options)
         .json(
             new ApiResponse(200, { createdUser, accessToken, refreshToken }, "The user is registered successfully")
         )
@@ -98,8 +98,8 @@ const loginUser = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .coockie("accesstoken", accessToken, options)
-        .coockie("refreshtoken", refreshToken, options)
+        .cookie("accesstoken", accessToken, options)
+        .cookie("refreshtoken", refreshToken, options)
         .json(
             new ApiResponse(
                 200,
